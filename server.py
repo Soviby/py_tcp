@@ -2,14 +2,31 @@
 import socket
 import threading
 
-class TCPServer(object):
+
+class TCPClinet(object):
     def __init__(self, **kwargs):
-        self.ip = kwargs.get('ip')
-        self.port = kwargs.get('port')
+        self.addr = kwargs.get('addr')
+        self.socket = kwargs.get('socket')
         self.handle_client = kwargs.get('handle_client')
 
-        assert(self.ip)
-        assert(self.port)
+        self.is_alive = True
+        self.thread = threading.Thread(
+            target=self.handle_client, kwargs={'client': self})
+
+    def start(self):
+        self.thread.start()
+
+    def close(self):
+        self.is_alive = False
+        self.socket.close()
+
+
+class TCPServer(object):
+    def __init__(self, **kwargs):
+        self.addr = kwargs.get('addr')
+        self.handle_client = kwargs.get('handle_client')
+
+        assert(self.addr)
         assert(self.handle_client)
 
         self.max_recv = kwargs.get(
@@ -18,43 +35,42 @@ class TCPServer(object):
 
     def start(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind((self.ip, self.port))
+            s.bind(self.addr)
             s.listen()
             while True:
                 c, addr = s.accept()
                 print(addr, 'connected.')
-                c.sendall(b'my is server')
-                t = threading.Thread(
-                    target=self.my_handle_client, args=(c, addr))
-                self.client_map[addr] = {
-                    'addr': addr,
-                    'thread': t,
-                    'socket': c
-                }
-                t.start()
+                client = TCPClinet(addr=addr, socket=c,
+                                   handle_client=self.my_handle_client)
+                client.start()
+                self.client_map[addr] = client
 
-    def my_handle_client(self, c, addr):
+    def my_handle_client(self, client: TCPClinet):
+        socket = client.socket
         while True:
-            data = c.recv(self.max_recv)
+            if not client.is_alive:
+                break
+            data = socket.recv(self.max_recv)
             if not data:
                 break
-            self.handle_client(self.get_client(addr), data)
+            self.handle_client(client, self, data)
 
-    def get_client(self, addr):
+    def get_client(self, addr) -> TCPClinet:
         return self.client_map.get(addr)
 
+    def remove_client(self, addr):
+        client = self.get_client(addr)
+        if client:
+            client.close()
+            del client
 
-def handle_client(client, data):
+
+def handle_client(client: TCPClinet, server: TCPServer, data):
     print(data)
-    socket = client.get('socket')
-    socket.sendall(b'wo kwon')
+    client.socket.sendall(b'wo kwon')
+    server.remove_client(client.addr)
 
 
 if __name__ == '__main__':
-    kwargs = {
-        'ip': '127.0.0.1',
-        'port': 1234,
-        'handle_client': handle_client
-    }
-    server = TCPServer(**kwargs)
+    server = TCPServer(addr=('127.0.0.1', 1234), handle_client=handle_client)
     server.start()
