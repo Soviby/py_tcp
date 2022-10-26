@@ -68,7 +68,6 @@ class TCPServer(object):
 def handle_client(client: TCPClinet, server: TCPServer, data):
     print(data)
     client.socket.sendall(b'wo kwon')
-    server.remove_client(client.addr)
 
 
 if __name__ == '__main__':
