@@ -49,3 +49,5 @@ if __name__ == '__main__':
     cmdParser.add_desc('start', kind='list[str]', func=start_client)
     cmdParser.add_desc('send', alias='s', kind='str', func=send)
     cmdParser.handle_sys_argv_command(cmdParser)
+
+    print('111111111111')
